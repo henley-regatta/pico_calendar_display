@@ -229,11 +229,13 @@ class EPD_4in2:
         self.spi.init(baudrate=4000_000)
         self.dc_pin = Pin(DC_PIN, Pin.OUT)
         
-        self.buffer_1Gray_DATA  = [0x00] * (self.height * self.width // 8)
+        #MCE - 1Gray doesn't appear to be used
+        #(and we need the memory)
+        #self.buffer_1Gray_DATA  = [0x00] * (self.height * self.width // 8)
         
-        self.buffer_1Gray = bytearray(self.height * self.width // 8)
+        #self.buffer_1Gray = bytearray(self.height * self.width // 8)
         self.buffer_4Gray = bytearray(self.height * self.width // 4)
-        self.image1Gray = framebuf.FrameBuffer(self.buffer_1Gray, self.width, self.height, framebuf.MONO_HLSB)
+        #self.image1Gray = framebuf.FrameBuffer(self.buffer_1Gray, self.width, self.height, framebuf.MONO_HLSB)
         self.image4Gray = framebuf.FrameBuffer(self.buffer_4Gray, self.width, self.height, framebuf.GS2_HMSB)
         
         self.EPD_4IN2_Init_4Gray()

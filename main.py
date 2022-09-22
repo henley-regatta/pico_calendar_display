@@ -16,12 +16,18 @@ calendar_url="http://docker1.local:24611/json?week"
 #      below 10-15 minutes under most circumstances....
 refresh_interval_minutes = 30
 
+#Refresh rate for the display, in minutes.
+#NOTE: synchronise this with the calendar data refresh
+#      interval for best results; probably no need to go
+#      below 10-15 minutes under most circumstances....
+refresh_interval_minutes = 30
+
 ########################################
 def wait_for_wifi():
     global wlan
     max_wait = 10
     while max_wait > 0:
-        led.toggle()
+        cal_display.blinkLED(1,100)
         s=wlan.status()
         if s < 0 or s >= 3:
             break
@@ -33,45 +39,39 @@ def wait_for_wifi():
 ########################################
 ########################################
 # This is important in giving a
-# window of control; the first lightsleep
-# issued will make STOP/RESTART impossible
-# so a "breather" here gives time for that to
-# happen. Programmed as a 10-second blinkenfest:
-for x in range(20) :
-    led.toggle()
-    utime.sleep_ms(250)
+# window of control - once we get to
+# system.lightsleep() we lose control of
+# REPL - this isn't just diagnostics it's
+# an opportunity to break out
+cal_display.blinkLED(10,250)
 cal_display.errDumpText(f"Refresh every {refresh_interval_minutes} minutes for {calendar_url} connecting to {ssid}")
-for x in range(20) :
-    led.toggle()
-    utime.sleep_ms(250)
 ########################################
 # Main program loop:
 while True :
-    led.on()
-    
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     wlan.connect(ssid,sspass)
     while (wait_for_wifi() != 3) :
         utime.sleep_ms(1000)
         wlan.connect(ssid,sspass)
-    led.on()
     
+    #Indicator of connection established:
+    cal_display.blinkLED(2,1000)
+  
     # PAYLOAD GOES HERE
-    #blink the LED a bit to show activity
-    for x in range(20) :
-        led.toggle()
-        utime.sleep_ms(125)
     #Retrieve and display the Calendar details
-    cal_display.getAndDisplayCalendar(calendar_url)        
-        
+    cal_display.getAndDisplayCalendar(calendar_url)
+    
+    #Indicator of display complete:
+    cal_display.blinkLED(10,100)
+    
     wlan.disconnect()
     wlan.active(False)
     #https://github.com/orgs/micropython/discussions/9135
     #vital for actually turning wifi off:
     wlan.deinit()
     wlan = None
-    led.off()
+    cal_display.blinkLED(1,10) ##effectively an "off"
     #note that the ePaper needs to be "disconnected" before
     #sleep to prevent a dim screen (pin going high?).
     #check ePaper code not only does epd.Sleep() but also

@@ -1,10 +1,26 @@
+import gc
+###########################################################
+def pMem(why) :
+    print(f"{why}: {gc.mem_alloc()} / {gc.mem_free()}")
 import WaveShareEpaper42
 import time
+import utime
 import urequests
 import json
+import machine
+led = machine.Pin("LED", machine.Pin.OUT)
 
 defaultCalendarURL="http://docker1.local:24611/json?week"
 
+#Bit poor form but treat this as a global:
+epd=WaveShareEpaper42.EPD_4in2()
+gc.collect()
+
+#Don't quite understand why but if these two aren't defined
+#we get a black background. Which is ugly
+#epd.image1Gray.fill(0xff) # disabled for mem saving
+
+    
 #This is our assumption of fixed-width font pixel size
 CHARWIDTH=8
 CHARHEIGHT=8
@@ -32,15 +48,16 @@ c2Box=[[c2TextWidthOffset,colTextHeightOffset],[MAXWIDTH-CHARWIDTH,MAXHEIGHT-(FT
 colRowsAvail = int((c1Box[1][1]-c1Box[0][1])/CHARHEIGHT)
 colColsAvail = int((c1Box[1][0]-c1Box[0][0])/CHARWIDTH) - 2
 
+
 ###########################################################
 def getCalendar(calendarURL) :
+    gc.collect() # voodoo
     try: 
         r = urequests.get(calendarURL)
         if r.status_code >= 200 and r.status_code < 300 :
-            #calData = r.content
-            #r.close()
             buff=json.loads(r.content)
             r.close() #bad things happen if you don't close the request
+            gc.collect() # more voodoo
             return(buff)
         else :
             rc=r.status_code
@@ -50,19 +67,33 @@ def getCalendar(calendarURL) :
         raise IOError(f'Unknown error retrieving {calendarURL}')
     except Exception as err:
         errType = type(err).__name__
-        errDumpText(f"Exception retrieving {calendarURL} : {errType}\n{err}")
-        import machine
+        errString=(f"Exception retrieving {calendarURL} : {errType}\n{err}")
+        print(errString)
+        errDumpText(errString)
+        for x in range(5) :
+            blinkLED(3,250)
+            utime.sleep_ms(500)
+            blinkLED(3,666)
+            utime.sleep_ms(500)
+            blinkLED(3,250)
+            utime.sleep_ms(1000)
         machine.reset()
 
+###########################################################
+def blinkLED(count, onMS) :
+    for x in range(count*2) :
+        led.toggle()
+        utime.sleep_ms(onMS)
+    led.off()
 
 ###########################################################
 def errDumpText(texttodump) :
-    epd=WaveShareEpaper42.EPD_4in2()
-    #Don't quite understand why but if these two aren't defined
-    #we get a black background. Which is ugly
-    epd.image1Gray.fill(0xff)
+    global epd
+    gc.collect() # voodoo
+    epd.EPD_4IN2_Init()
+    #Initialise the framebuffer to white:
     epd.image4Gray.fill(0xff)
-    
+
     maxCharsPerLine=int(MAXWIDTH/CHARWIDTH)-2*CHARWIDTH
     errLines=list(texttodump[0+i:maxCharsPerLine+i] for i in range(0,len(texttodump),maxCharsPerLine))
     tHeight=int(MAXHEIGHT/2)-len(errLines)*CHARHEIGHT+2
@@ -74,6 +105,7 @@ def errDumpText(texttodump) :
     epd.Sleep()
     epd.reset()
     epd.module_exit()
+    gc.collect() # voodoo
 
 ###########################################################
 def centreText(txt,maxWidth) :
@@ -94,7 +126,8 @@ def rightAlign(txt,maxWidth) :
         return spare
     
 ###########################################################
-def outputHeadersAndBorders(epd, hdr, lftr, rftr) :
+def outputHeadersAndBorders(hdr, lftr, rftr) :
+    global epd
     #Draw boxes to delimit our drawing area
     #NOTE: Boxes are given as (startpoint),(widthxheight)
     #full bounding box
@@ -119,6 +152,8 @@ def outputHeadersAndBorders(epd, hdr, lftr, rftr) :
     epd.image4Gray.text(c2hdr,centreText(c2hdr,COLWIDTH)+COLWIDTH,HDRHEIGHT+CHARHEIGHT,epd.black)
     #footer
     epd.image4Gray.text(lftr,CHARWIDTH,MAXHEIGHT-(FTRHEIGHT-2),epd.black)
+    memFree=str(gc.mem_free())
+    epd.image4Gray.text(memFree,centreText(memFree,MAXWIDTH),MAXHEIGHT-(FTRHEIGHT-2),epd.black)
     fStart = rightAlign(rftr,MAXWIDTH)   
     epd.image4Gray.text(rftr,fStart,MAXHEIGHT-(FTRHEIGHT-2),epd.black)
 
@@ -169,12 +204,12 @@ def trimEventsForSpace(events,rows) :
                     eventsAllocated += 1
                     remainingSpace -= 1
                 events[cal] = events[cal][:eventsAllocated]
-        
     return events
 
 ###########################################################
-def outputColumn(epd,events,box,today) :
-  #reset the offset ptrs:
+def outputColumn(events,box,today) :
+    global epd
+    #reset the offset ptrs:
     lPos= box[0][0]
     rOffset= box[0][1]
     maxTextWidth = int((box[1][0]-box[0][0])/CHARWIDTH) - 1 #because we offset event entries by 1 char
@@ -216,10 +251,9 @@ def outputColumn(epd,events,box,today) :
 
 ###########################################################
 def displayCalendar(calData) :
-    epd=WaveShareEpaper42.EPD_4in2()
-    #Don't quite understand why but if these two aren't defined
-    #we get a black background. Which is ugly
-    epd.image1Gray.fill(0xff)
+    global epd
+    epd.EPD_4IN2_Init()
+    #Initialise the framebuffer to white:
     epd.image4Gray.fill(0xff)
     
     #Group calendar events by DAY (and trim for size):
@@ -229,15 +263,15 @@ def displayCalendar(calData) :
    
     #Page and Column header definitions
     header = " ".join([calData['day'],calData['dom'],calData['month']])
-    left_footer = (f"Data as of: {calData['cachetime']}")
-    right_footer = (f"Updated at: {calData['time']}")
-    outputHeadersAndBorders(epd, header, left_footer, right_footer) 
+    left_footer = (f"Data: {calData['cachetime']}")
+    right_footer = (f"Updated: {calData['time']}")
+    outputHeadersAndBorders(header, left_footer, right_footer) 
 
     #TODAY column output
-    outputColumn(epd,evByDay[0],c1Box,True)
+    outputColumn(evByDay[0],c1Box,True)
     #FURTHER AHEAD column output
-    outputColumn(epd,evByDay[1],c2Box,False)
-    
+    outputColumn(evByDay[1],c2Box,False)
+   
     #PRINT THE BUFFER
     epd.EPD_4IN2_4GrayDisplay(epd.buffer_4Gray)
     epd.Sleep()
@@ -246,7 +280,8 @@ def displayCalendar(calData) :
     #one needs some more drastic disconnect:
     epd.reset()
     epd.module_exit()
-
+    gc.collect()
+    
 ###########################################################
 def getAndDisplayCalendar(calURL=defaultCalendarURL) :
     calData=getCalendar(calURL)

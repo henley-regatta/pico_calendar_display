@@ -51,6 +51,34 @@ This is why there's a 10-second LED blinker at the start of the `main.py`
 execution; that's enough time (if Thonny is already launched!) to let you
 STOP and get back to the REPL to make changes if you need to.
 
+## Memory Management
+
+As I was ready to push this out and declare "Done" I found it was crashing
+when booted from scratch. After doing some tracing I found that it was
+dying out-of-memory when retrieving the calendar. And with some judicious
+use of `gc.mem_free()` it became obvious that it's all used in allocating
+the `gpd` object that controls the e-Paper. There's some wierdness in that
+library in that it allocates both a 1-bit-per-pixel array (`Image1Gray`)
+and a 2-bit-per-pixel / 4 colour array (`Image4Gray`), but then _never
+uses the 1-bit ImageBuffer_. That's 15K of memory (out of about 150K, 10%)
+apparently wasted. So I've commented it out; _apparently_ without ill
+effect but days are early.
+
+This does highlight one of the major limitations of this hardware solution
+though - memory size is critical. The ability of this particular hardware
+combination to "scale" - either to larger calendar sizes, or even to
+larger display sizes (bigger Frame Buffers) is limited. I suspect at some
+point I'm going to need to ditch the Python environment and start on C
+development to have greater control over memory consumption.
+
+As a legacy of all this tracing/debugging, there's still a bunch of manual
+`gc.collect()` statements strewn around the code base. These are
+_probably_ unnecessary but at this point I'm not willing to risk it by
+removing them...
+
+Also, the free heap size is in the footer where no doubt it'll confuse
+someone reading the screen...
+
 ## Low-power / Sleep modes on the Pi Pico w with an ePaper display attached
 
 Probably the biggest headache in all of this was getting the Pico W to do
