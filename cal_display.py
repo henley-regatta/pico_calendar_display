@@ -24,12 +24,12 @@ COLHEIGHT=MAXHEIGHT-(HDRHEIGHT+FTRHEIGHT)
 #Available "drawing area" per column of text:
 c1TextWidthOffset = CHARWIDTH
 c2TextWidthOffset = COLWIDTH + CHARWIDTH
-colTextHeightOffset = HDRHEIGHT + CHARHEIGHT*3
+colTextHeightOffset = HDRHEIGHT + CHARHEIGHT*2+int(CHARHEIGHT/2)
 
 c1Box=[[c1TextWidthOffset,colTextHeightOffset],[COLWIDTH-CHARWIDTH,MAXHEIGHT-(FTRHEIGHT+CHARHEIGHT)]]
 c2Box=[[c2TextWidthOffset,colTextHeightOffset],[MAXWIDTH-CHARWIDTH,MAXHEIGHT-(FTRHEIGHT+CHARHEIGHT)]]
 
-colRowsAvail = int((c1Box[1][1]-c1Box[0][1])/(CHARHEIGHT+2))
+colRowsAvail = int((c1Box[1][1]-c1Box[0][1])/CHARHEIGHT)
 colColsAvail = int((c1Box[1][0]-c1Box[0][0])/CHARWIDTH) - 2
 
 ###########################################################
@@ -139,11 +139,18 @@ def trimEventsForSpace(events,rows) :
     for cal in events :
         for ev in events[cal] :
             evsInList += 1
+    print(f'I have {cals} calendars, I can show {evsPossible} events in {rows} rows, and I have {evsInList} events to show')            
     if evsInList > evsPossible :
         fairShare = int(evsPossible / len(events))
+        remainingSpace = evsPossible%len(events)
+        print(f'fairshare: {fairShare} remainder: {remainingSpace}')
         for cal in events :
             if len(events[cal]) > fairShare :
-                events[cal] = events[cal][:fairShare]
+                eventsAllocated = fairShare
+                if remainingSpace > 0 :
+                    eventsAllocated += 1
+                    remainingSpace -= 1
+                events[cal] = events[cal][:eventsAllocated]
         
     return events
 
