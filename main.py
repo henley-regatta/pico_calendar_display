@@ -37,7 +37,11 @@ def wait_for_wifi():
 # issued will make STOP/RESTART impossible
 # so a "breather" here gives time for that to
 # happen. Programmed as a 10-second blinkenfest:
-for x in range(40) :
+for x in range(20) :
+    led.toggle()
+    utime.sleep_ms(250)
+cal_display.errDumpText(f"Refresh every {refresh_interval_minutes} minutes for {calendar_url} connecting to {ssid}")
+for x in range(20) :
     led.toggle()
     utime.sleep_ms(250)
 ########################################

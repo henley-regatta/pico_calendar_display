@@ -50,10 +50,30 @@ def getCalendar(calendarURL) :
         raise IOError(f'Unknown error retrieving {calendarURL}')
     except Exception as err:
         errType = type(err).__name__
-        print(f"Exception retrieving {calendarURL} : {errType}\n{err}")
-        import sys
-        sys.exit(1)
-        
+        errDumpText(f"Exception retrieving {calendarURL} : {errType}\n{err}")
+        import machine
+        machine.reset()
+
+
+###########################################################
+def errDumpText(texttodump) :
+    epd=WaveShareEpaper42.EPD_4in2()
+    #Don't quite understand why but if these two aren't defined
+    #we get a black background. Which is ugly
+    epd.image1Gray.fill(0xff)
+    epd.image4Gray.fill(0xff)
+    
+    maxCharsPerLine=int(MAXWIDTH/CHARWIDTH)-2*CHARWIDTH
+    errLines=list(texttodump[0+i:maxCharsPerLine+i] for i in range(0,len(texttodump),maxCharsPerLine))
+    tHeight=int(MAXHEIGHT/2)-len(errLines)*CHARHEIGHT+2
+    
+    for errLine in errLines :
+        epd.image4Gray.text(errLine,centreText(errLine,MAXWIDTH),tHeight,epd.black)
+        tHeight += CHARHEIGHT+2
+    epd.EPD_4IN2_4GrayDisplay(epd.buffer_4Gray)
+    epd.Sleep()
+    epd.reset()
+    epd.module_exit()
 
 ###########################################################
 def centreText(txt,maxWidth) :
