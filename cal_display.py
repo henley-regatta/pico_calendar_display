@@ -139,11 +139,9 @@ def trimEventsForSpace(events,rows) :
     for cal in events :
         for ev in events[cal] :
             evsInList += 1
-    print(f'I have {cals} calendars, I can show {evsPossible} events in {rows} rows, and I have {evsInList} events to show')            
     if evsInList > evsPossible :
         fairShare = int(evsPossible / len(events))
         remainingSpace = evsPossible%len(events)
-        print(f'fairshare: {fairShare} remainder: {remainingSpace}')
         for cal in events :
             if len(events[cal]) > fairShare :
                 eventsAllocated = fairShare
