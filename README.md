@@ -88,9 +88,10 @@ removing them...
 
 ## Battery Level Monitoring - Gratitude
 
-I intend to power this with a battery, so in preparation I've added code
-to discover and print battery condition. This uses the example given by
-[Pimoroni
+I intend to power this with a battery, (using the [PiMoroni LiPo SHIM for
+Pico](https://shop.pimoroni.com/products/pico-lipo-shim) and a 500mAh LiPo
+battery) so in preparation I've added code to discover and print battery
+condition. This uses the example given by [Pimoroni
 here](https://github.com/pimoroni/pimoroni-pico/blob/main/micropython/examples/pico_lipo_shim/battery_pico.py).
 However, it's important to note that that code only actually works on a Pi
 Pico.
