@@ -197,17 +197,21 @@ def outputHeadersAndBorders(hdr, lftr, cftr, rftr) :
 
 
 ###########################################################
-def groupEventsByDay(cals,nowts) :
-    today=str(time.localtime(nowts)[2])
+def groupEventsByDay(cals,nowts,dayofmonth) :
     evGroup=[ {}, {} ]
     for cal in cals :
         for ev in cals[cal] :
-            if (ev['date'] == today) and ((ev['durSecs'] == 0) or (ev['startts']+ev['durSecs'] >= nowts)):
+            #3 conditions: Event has occurred/is over (junk):
+            if (ev['date'] == dayofmonth) and (ev['durSecs'] > 0) and ((ev['startts']+ev['durSecs']) <= nowts) :
+                pass # Event has finished; ignore it
+            elif ev['date'] == dayofmonth :
+                #it's today, add:
                 if cal not in evGroup[0] :
                     evGroup[0][cal] = [ev]
                 else :
                     evGroup[0][cal].append(ev)
             else :
+                #its later on, add to that group
                 if cal not in evGroup[1] :
                     evGroup[1][cal] = [ev]
                 else :
@@ -314,7 +318,7 @@ def displayCalendar(calData) :
     epd.image4Gray.fill(0xff)
     
     #Group calendar events by DAY (and trim for size):
-    evByDay=groupEventsByDay(calData['cals'],calData['ts'])
+    evByDay=groupEventsByDay(calData['cals'],calData['ts'],calData['dom'])
     evByDay[0]=trimEventsForSpace(evByDay[0],colRowsAvail)
     evByDay[1]=trimEventsForSpace(evByDay[1],colRowsAvail)
     
