@@ -15,11 +15,6 @@ defaultCalendarURL="http://docker1.local:24611/json?week"
 #Bit poor form but treat this as a global:
 epd=WaveShareEpaper42.EPD_4in2()
 gc.collect()
-
-#Don't quite understand why but if these two aren't defined
-#we get a black background. Which is ugly
-#epd.image1Gray.fill(0xff) # disabled for mem saving
-
     
 #This is our assumption of fixed-width font pixel size
 CHARWIDTH=8
@@ -86,18 +81,37 @@ def blinkLED(count, onMS) :
         utime.sleep_ms(onMS)
     led.off()
 
+########################################
+# ADC(29) shows VSys but is also used by WiFi.
+# Solution for reading shamelessly borrowed from:
+# https://github.com/danjperron/PicoWSolar/blob/main/mqtt_ds18B20.py
+# See discussion at https://forums.raspberrypi.com/viewtopic.php?p=2036743
+########################################
+def setPad(gpio, value):
+    machine.mem32[0x4001c000 | (4+ (4 * gpio))] = value
+    
+def getPad(gpio):
+    return machine.mem32[0x4001c000 | (4+ (4 * gpio))]
+
+def readVsys():
+    oldpad = getPad(29)
+    setPad(29,128)  #no pulls, no output, no input
+    adc_Vsys = machine.ADC(3)
+    Vsys = adc_Vsys.read_u16() * 3.0 * (3.3 / (65535))
+    setPad(29,oldpad)
+    return Vsys
+########################################
+
 ###########################################################
+# Inspired by example at:
+# https://github.com/pimoroni/pimoroni-pico/blob/main/micropython/examples/pico_lipo_shim/battery_pico.py
+# modified for PicoW per above
 def getBattPercent() :
-    #After code at: https://github.com/pimoroni/pimoroni-pico/blob/main/micropython/examples/pico_lipo_shim/battery_pico.py
+    #PiPico uses GPIO24 for USB power/nopower (IP VBUS Sense)
+    #PiPicoW uses WL_GPIO2 instead.
+    charging = machine.Pin("WL_GPIO2", machine.Pin.IN)
     
-    #ISSUE: Even just initialising the ADC makes the ePaper flush fail.
-    return "nul"
-    vSys = machine.ADC(29)             # system input voltage
-    charging = machine.Pin(24, machine.Pin.IN) # GP24 says USB power/nopower
-    
-    conversion_factor = 3 * 4.4 / 65535 # magic number
-    volts = vSys.read_u16() * conversion_factor
-    
+    volts = readVsys()
     full_batt = 4.2       # more magic; adjust on use
     empty_batt = 2.8      # more magic; adjust on use
 
@@ -317,6 +331,7 @@ def displayCalendar(calData) :
     outputColumn(evByDay[1],c2Box,False)
   
     #PRINT THE BUFFER
+    print('print the buffer')
     epd.EPD_4IN2_4GrayDisplay(epd.buffer_4Gray)
     epd.Sleep()
     
