@@ -45,7 +45,7 @@ colTextHeightOffset = HDRHEIGHT + CHARHEIGHT*2+int(CHARHEIGHT/2)
 c1Box=[[c1TextWidthOffset,colTextHeightOffset],[COLWIDTH-CHARWIDTH,MAXHEIGHT-(FTRHEIGHT+CHARHEIGHT)]]
 c2Box=[[c2TextWidthOffset,colTextHeightOffset],[MAXWIDTH-CHARWIDTH,MAXHEIGHT-(FTRHEIGHT+CHARHEIGHT)]]
 
-colRowsAvail = int((c1Box[1][1]-c1Box[0][1])/CHARHEIGHT)
+colRowsAvail = int((c1Box[1][1]-c1Box[0][1])/(CHARHEIGHT+2))
 colColsAvail = int((c1Box[1][0]-c1Box[0][0])/CHARWIDTH) - 2
 
 
@@ -87,6 +87,32 @@ def blinkLED(count, onMS) :
     led.off()
 
 ###########################################################
+def getBattPercent() :
+    #After code at: https://github.com/pimoroni/pimoroni-pico/blob/main/micropython/examples/pico_lipo_shim/battery_pico.py
+    
+    #ISSUE: Even just initialising the ADC makes the ePaper flush fail.
+    return "nul"
+    vSys = machine.ADC(29)             # system input voltage
+    charging = machine.Pin(24, machine.Pin.IN) # GP24 says USB power/nopower
+    
+    conversion_factor = 3 * 4.4 / 65535 # magic number
+    volts = vSys.read_u16() * conversion_factor
+    
+    full_batt = 4.2       # more magic; adjust on use
+    empty_batt = 2.8      # more magic; adjust on use
+
+    #Assumes linear discharge curve....
+    percent = 100 * ((volts - empty_batt) / (full_batt - empty_batt))
+    if percent > 100 :
+        percent = "100"
+    else :
+        percent = str(int(percent))
+    
+    if charging.value() == 1 :
+        percent="+" + percent
+    return percent
+
+###########################################################
 def errDumpText(texttodump) :
     global epd
     gc.collect() # voodoo
@@ -126,7 +152,7 @@ def rightAlign(txt,maxWidth) :
         return spare
     
 ###########################################################
-def outputHeadersAndBorders(hdr, lftr, rftr) :
+def outputHeadersAndBorders(hdr, lftr, cftr, rftr) :
     global epd
     #Draw boxes to delimit our drawing area
     #NOTE: Boxes are given as (startpoint),(widthxheight)
@@ -152,10 +178,8 @@ def outputHeadersAndBorders(hdr, lftr, rftr) :
     epd.image4Gray.text(c2hdr,centreText(c2hdr,COLWIDTH)+COLWIDTH,HDRHEIGHT+CHARHEIGHT,epd.black)
     #footer
     epd.image4Gray.text(lftr,CHARWIDTH,MAXHEIGHT-(FTRHEIGHT-2),epd.black)
-    memFree=str(gc.mem_free())
-    epd.image4Gray.text(memFree,centreText(memFree,MAXWIDTH),MAXHEIGHT-(FTRHEIGHT-2),epd.black)
-    fStart = rightAlign(rftr,MAXWIDTH)   
-    epd.image4Gray.text(rftr,fStart,MAXHEIGHT-(FTRHEIGHT-2),epd.black)
+    epd.image4Gray.text(cftr,centreText(cftr,MAXWIDTH),MAXHEIGHT-(FTRHEIGHT-2),epd.black)
+    epd.image4Gray.text(rftr,rightAlign(rftr,MAXWIDTH),MAXHEIGHT-(FTRHEIGHT-2),epd.black)
 
 
 ###########################################################
@@ -187,23 +211,39 @@ def trimEventsForSpace(events,rows) :
     # 1) Each calendar should have AT LEAST one event
     # 2) Each event should have a MINIMUM of two lines
     # 3) Events occuring NOW are higher priority than those occuring LATER
+    #This is complicated by the fact that events can take up 1 or 2 lines...
     cals = len(events)
-    #take off a header-line per CAL, then give each event 2 lines:
-    evsPossible = int(rows / 2) - cals
-    evsInList=0
-    for cal in events :
+    fairShareLines = rows // cals
+    #we'd like to use up the remainder, too:
+    extraLines = rows % cals
+    
+    for cal in events:
+        rAvail = fairShareLines - 1 #cal needs a header
+        evPtr=0
         for ev in events[cal] :
-            evsInList += 1
-    if evsInList > evsPossible :
-        fairShare = int(evsPossible / len(events))
-        remainingSpace = evsPossible%len(events)
-        for cal in events :
-            if len(events[cal]) > fairShare :
-                eventsAllocated = fairShare
-                if remainingSpace > 0 :
-                    eventsAllocated += 1
-                    remainingSpace -= 1
-                events[cal] = events[cal][:eventsAllocated]
+            #Determine 1 or 2 line output:
+            if(ev['durSecs']==0 or ev['durSecs']==86400) :
+                rAvail -= 1
+                if rAvail >= 0 :
+                    evPtr += 1
+                #can we use a spare?
+                elif rAvail < 0 and extraLines > 0 :
+                    evPtr += 1
+                    extraLines -= 1 
+            else :
+                rAvail -= 2
+                if rAvail >= 0 :
+                    evPtr += 1
+                #can we use a spare?
+                elif rAvail < 0 and extraLines > 2 :
+                    evPtr += 1
+                    extraLines -= 2
+            #have we now run out of space?
+            if rAvail < 1 :
+                break
+        #OK, shovel this in:
+        events[cal] = events[cal][:evPtr]
+
     return events
 
 ###########################################################
@@ -222,7 +262,7 @@ def outputColumn(events,box,today) :
         rOffset += 2
         for ev in events[cal] :
             lStart = lPos + CHARWIDTH
-            if ev['durSecs'] == 0 :
+            if ev['durSecs'] == 0 or ev['durSecs'] == 86400 :
                 #all-day events. Draw as WHITE on BLACK background
                 if today :
                     evTitle = ev['title']
@@ -251,6 +291,9 @@ def outputColumn(events,box,today) :
 
 ###########################################################
 def displayCalendar(calData) :
+    #Get battery condition - PRIOR to using display
+    batt=getBattPercent()
+    #OK, use the display:
     global epd
     epd.EPD_4IN2_Init()
     #Initialise the framebuffer to white:
@@ -260,18 +303,19 @@ def displayCalendar(calData) :
     evByDay=groupEventsByDay(calData['cals'],calData['ts'])
     evByDay[0]=trimEventsForSpace(evByDay[0],colRowsAvail)
     evByDay[1]=trimEventsForSpace(evByDay[1],colRowsAvail)
-   
+    
     #Page and Column header definitions
     header = " ".join([calData['day'],calData['dom'],calData['month']])
     left_footer = (f"Data: {calData['cachetime']}")
+    centre_footer = (f"Batt: {batt}%")
     right_footer = (f"Updated: {calData['time']}")
-    outputHeadersAndBorders(header, left_footer, right_footer) 
-
+    outputHeadersAndBorders(header, left_footer, centre_footer, right_footer)
+    
     #TODAY column output
     outputColumn(evByDay[0],c1Box,True)
     #FURTHER AHEAD column output
     outputColumn(evByDay[1],c2Box,False)
-   
+  
     #PRINT THE BUFFER
     epd.EPD_4IN2_4GrayDisplay(epd.buffer_4Gray)
     epd.Sleep()
