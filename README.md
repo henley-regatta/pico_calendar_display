@@ -37,17 +37,14 @@ anything v1.19.1 or above issued after 20220630, which was when
 
 ## Does it work and what does it look like?
 Yes. Yes it does. It looks like this:
-<div style="display: block; margin: auto; width: 90%">
 ![Example of code running on bench showing current calendar data](/example_output.jpg "Sample Calendar Output")
-</div>
 
 And if you've got a battery you can even run it on that. Measured power
 consumption suggests a 500mAh battery should give around a week of runtime
 thanks to power-saving modes _(subject to verification once I leave it
 alone for a week)_
-<div style="display: block; margin: auto; width: 90%">
 ![Example of PiPico W with ePaper display showing calendar running from LiPo battery using Pimoroni LiPo Pico Shim](/example_output_batteryrunning.jpg "Battery-Powered Example Calendar ready for wall-mounting")
-</div>
+
 
 ## Getting Control back of your Pi Pico W
 
