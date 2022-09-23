@@ -231,6 +231,10 @@ def trimEventsForSpace(events,rows) :
     # 3) Events occuring NOW are higher priority than those occuring LATER
     #This is complicated by the fact that events can take up 1 or 2 lines...
     cals = len(events)
+    #protect against no events
+    if cals == 0 :
+        return events
+    
     fairShareLines = rows // cals
     #we'd like to use up the remainder, too:
     extraLines = rows % cals
