@@ -79,6 +79,27 @@ removing them...
 Also, the free heap size is in the footer where no doubt it'll confuse
 someone reading the screen...
 
+## Battery Level Monitoring - Gratitude
+
+I intend to power this with a battery, so in preparation I've added code
+to discover and print battery condition. This uses the example given by
+[Pimoroni
+here](https://github.com/pimoroni/pimoroni-pico/blob/main/micropython/examples/pico_lipo_shim/battery_pico.py).
+However, it's important to note that that code only actually works on a Pi
+Pico.
+
+On a PicoW there are two changes:
+
+  * IP VBUS Sense isn't on `GPIO24`, it's on `WL_GPIO2` (easy!)
+  * VSys on `GPIO29`is shared with Wireless SPI; using it with `machine.ADC()` will cause the Pico to freeze dead if any network access is attempted
+
+Fortunately, [Others have found this before
+me](https://forums.raspberrypi.com/viewtopic.php?p=2036743) and in
+particular a huge shout-out / thanks to user **danjperron** who came up
+with a working solution shown in [his code
+here](https://github.com/danjperron/PicoWSolar/blob/main/mqtt_ds18B20.py)
+which I have shamelessly ~~stolen~~ borrowed.
+
 ## Low-power / Sleep modes on the Pi Pico w with an ePaper display attached
 
 Probably the biggest headache in all of this was getting the Pico W to do
@@ -110,7 +131,6 @@ augment the call to `epd.Sleep()` with additional de-initialising calls to
 this. Frankly this is voodoo programming; one of those calls might be
 enough but since both of them have the desired effect and (so far) seem to
 avoid memory leaks I've left 'em both in.
-
 
 In many ways it's a shame `system.deepsleep()` isn't (yet?) implemented
 properly on PiPico as that would have a much more beneficial effort from a
