@@ -43,6 +43,8 @@ And if you've got a battery you can even run it on that. Measured power
 consumption suggests a 500mAh battery should give around a week of runtime
 thanks to power-saving modes _(subject to verification once I leave it
 alone for a week)_
+
+__Update, 36 hours later:__ Oh that was wildly optimistic. Battery life turns out to be, er, about 36 hours. I suspect my monitoring device is a little inaccurate (that or the battery isn't performing). 
 ![Example of PiPico W with ePaper display showing calendar running from LiPo battery using Pimoroni LiPo Pico Shim](/example_output_batteryrunning.jpg "Battery-Powered Example Calendar ready for wall-mounting")
 
 
